@@ -17,7 +17,7 @@ namespace maltedmoniker.pipeline.Pipelines
             var multiReaders = GetReaders(items, token);
             var outReader = WriteResultsFromReaders(multiReaders, token);
 
-            await foreach (var item in outReader.ReadAllAsync())
+            await foreach (var item in outReader.ReadAllAsync(token))
             {
                 yield return item;
             }
