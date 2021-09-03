@@ -1,6 +1,8 @@
-﻿using System;
+﻿using maltedmoniker.pipeline.Extensions;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,10 +11,17 @@ namespace maltedmoniker.pipeline.Pipelines
 {
     public abstract class BasePipeline<TIn, TOut>
     {
-        private Func<TIn, TIn> _preProcessItem = PassThrough;
-        private Func<TOut, TOut> _postProcessItem = PassThrough;
+        protected Func<TIn, TIn> _preProcessItem = (TIn o) => o;// PassThrough;
+        protected Func<TOut, TOut> _postProcessItem = (TOut o) => o;
         protected Func<TIn, TIn> PreProcessItem => _preProcessItem;
         protected Func<TOut, TOut> PostProcessItem => _postProcessItem;
+
+        protected MethodInfo _postProcessItemMethod;
+
+        protected BasePipeline()
+        {
+            UpdateMethodInfo();
+        }
 
         public void ChangeItemPreProcessor(Func<TIn, TIn> preProcessItem)
         {
@@ -22,6 +31,12 @@ namespace maltedmoniker.pipeline.Pipelines
         public void ChangeItemPostProcessor(Func<TOut, TOut> postProcessItem)
         {
             _postProcessItem = postProcessItem;
+            UpdateMethodInfo();
+        }
+
+        private void UpdateMethodInfo()
+        {
+            _postProcessItemMethod = PostProcessItem.GetType().GetMethod("Invoke") ?? throw new Exception("Unable to get the post process item method!");
         }
         protected static T PassThrough<T>(T item)
             => item;
@@ -31,7 +46,7 @@ namespace maltedmoniker.pipeline.Pipelines
     {
         private readonly List<Func<T, CancellationToken, Task<T>>> _pipes;
 
-        public Pipeline(List<IPipe<T>> pipes)
+        public Pipeline(List<IPipe<T>> pipes) : base()
         {
             _pipes = pipes
                 .Select<IPipe<T>, Func<T, CancellationToken, Task<T>>>((step) =>
@@ -73,7 +88,7 @@ namespace maltedmoniker.pipeline.Pipelines
         private static readonly Type _asyncStepDefinition = typeof(IAsyncPipe<,>);
         private static readonly Type _syncStepDefinition = typeof(ISyncPipe<,>);
 
-        public Pipeline(List<IPipe> pipes)
+        public Pipeline(List<IPipe> pipes) : base()
         {
             _pipeAndTypes = pipes
                 .Select(pipe =>
@@ -90,7 +105,20 @@ namespace maltedmoniker.pipeline.Pipelines
                         _ => PipeType.Unknown
                     };
 
-                    return new PipeAndType(pipe, stepType);
+                    var genericArgs = typeInterface.GetGenericArguments();
+                    if (genericArgs.Length != 2) throw new Exception("Invalid pipe!");
+
+                    var tIn = genericArgs[0];
+                    var tOut = genericArgs[1];
+
+                    var methodInfo = stepType switch
+                    {
+                        PipeType.Async => type.GetMethod(nameof(IAsyncPipe<TIn, TOut>.ExecuteAsync)),
+                        PipeType.Sync => type.GetMethod(nameof(ISyncPipe<TIn, TOut>.Execute)),
+                        _ => type.GetMethod("Execute")
+                    } ?? throw new Exception("Can't get pipe's execute method!");
+
+                    return new PipeAndType(pipe, tIn, tOut, methodInfo, stepType);
                 })
                 .Where(s => s is not null && s.Type != PipeType.Unknown)
                 .Select(s => s!)
@@ -116,17 +144,23 @@ namespace maltedmoniker.pipeline.Pipelines
             var useItem = (dynamic)preProcessed;
             foreach (var pipeAndType in _pipeAndTypes)
             {
+                var method = pipeAndType.Method;
+                //var result = method.Invoke(pipeAndType.Pipe, new object[] { useItem, token });
+                
                 useItem = pipeAndType.Type switch
                 {
-                    PipeType.Async => await ((dynamic)pipeAndType.Pipe).ExecuteAsync(useItem, token),
-                    PipeType.Sync => ((dynamic)pipeAndType.Pipe).Execute(useItem),
+                    PipeType.Async => await method.InvokeAsync(pipeAndType.Pipe, (object)useItem, token ),
+                    PipeType.Sync => method.Invoke(pipeAndType.Pipe, BindingFlags.Public | BindingFlags.NonPublic, null, new object[] { useItem }, null),
                     _ => useItem
                 };
             }
-            return (TOut)PostProcessItem.Invoke(useItem);
+
+            return (TOut)_postProcessItemMethod.Invoke(PostProcessItem, new object[] { useItem });
+
+            //return (TOut)PostProcessItem.Invoke(useItem);
         }
 
-        private record PipeAndType(IPipe Pipe, PipeType Type);
+        private record PipeAndType(IPipe Pipe, Type In, Type Out, MethodInfo Method, PipeType Type);
         private enum PipeType { Unknown, Async, Sync }
     }
 

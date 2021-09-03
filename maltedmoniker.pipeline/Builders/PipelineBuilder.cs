@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace maltedmoniker.pipeline.Builders
 {
-    internal class PipelineBuilder<TPipeline, T> : IPipelineBuilder<TPipeline, T>
+    public class PipelineBuilder<TPipeline, T> : IPipelineBuilder<TPipeline, T>
         where TPipeline : IPipeline<T>
     {
         private readonly List<IPipe<T>> steps = new();
@@ -24,7 +24,7 @@ namespace maltedmoniker.pipeline.Builders
         }
     }
 
-    internal class PipelineBuilder<TPipeline, TIn, TOut> : IPipelineBuilder<TPipeline, TIn, TOut>
+    public class PipelineBuilder<TPipeline, TIn, TOut> : IPipelineBuilder<TPipeline, TIn, TOut>
         where TPipeline : IPipeline<TIn, TOut>
     {
 
