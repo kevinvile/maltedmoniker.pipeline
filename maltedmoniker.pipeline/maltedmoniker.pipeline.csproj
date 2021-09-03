@@ -3,6 +3,10 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
 	  <Nullable>enable</Nullable>
+	  <Version>0.1.0</Version>
+	  <PackageLicenseExpression>MIT</PackageLicenseExpression>
+	  <PackageProjectUrl>https://github.com/kevinvile/maltedmoniker.pipeline</PackageProjectUrl>
+	  <RepositoryUrl>https://github.com/kevinvile/maltedmoniker.pipeline</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
