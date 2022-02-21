@@ -17,7 +17,7 @@ namespace maltedmoniker.pipeline.Pipelines
         protected Func<TOut, TOut> PostProcessItem => _postProcessItem;
 
         protected MethodInfo _postProcessItemMethod = default!;
-        private readonly IPipeline<(TIn, Exception), TOut>? _exceptionPipeline;
+        protected readonly IPipeline<(TIn, Exception), TOut>? _exceptionPipeline;
 
         protected BasePipeline(IPipeline<(TIn, Exception), TOut>? exceptionPipeline)
         {
@@ -63,7 +63,6 @@ namespace maltedmoniker.pipeline.Pipelines
     public class Pipeline<T> : BasePipeline<T, T>, IPipeline<T>
     {
         private readonly List<Func<T, CancellationToken, Task<T>>> _pipes;
-        private readonly IPipeline<(T, Exception), T>? _exceptionPipeline;
 
         public Pipeline(List<IPipe<T>> pipes, IPipeline<(T, Exception), T>? exceptionPipeline=null) 
             : base(exceptionPipeline)
@@ -90,13 +89,10 @@ namespace maltedmoniker.pipeline.Pipelines
         {
             foreach (var item in items)
             {
-                var useItem = PreProcessItem.Invoke(item);
-                foreach (var step in _pipes)
-                {
-                    useItem = await step.Invoke(useItem, token);
-                }
-                var result = PostProcessItem.Invoke(useItem);
-                yield return result;
+                var tOut = await Process(item, token);
+                if(tOut is null) continue;
+
+                yield return tOut;
             }
         }
 
@@ -124,13 +120,10 @@ namespace maltedmoniker.pipeline.Pipelines
         private readonly List<PipeAndType> _pipeAndTypes;
         private static readonly Type _asyncStepDefinition = typeof(IAsyncPipe<,>);
         private static readonly Type _syncStepDefinition = typeof(ISyncPipe<,>);
-        private readonly IPipeline<(TIn, Exception), TOut>? _exceptionPipeline;
 
         public Pipeline(List<IPipe> pipes, IPipeline<(TIn, Exception), TOut>? exceptionPipeline = null) 
             : base(exceptionPipeline)
         {
-            _exceptionPipeline = exceptionPipeline;
-
             _pipeAndTypes = pipes
                 .Select(pipe =>
                 {
