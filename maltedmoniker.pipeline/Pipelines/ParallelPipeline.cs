@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -10,7 +11,7 @@ namespace maltedmoniker.pipeline.Pipelines
     public sealed class ParallelPipeline<TIn, TOut> : Pipeline<TIn, TOut>
     {
         public int ParallelSize { get; set; } = 150;
-        public ParallelPipeline(List<IPipe> pipes) : base(pipes)
+        public ParallelPipeline(List<IPipe> pipes, IPipeline<(TIn, Exception), TOut>? exceptionPipeline = null) : base(pipes, exceptionPipeline)
         {
         }
 

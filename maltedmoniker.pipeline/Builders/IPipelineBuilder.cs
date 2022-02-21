@@ -1,4 +1,5 @@
 ﻿using maltedmoniker.pipeline.Pipelines;
+using System;
 
 namespace maltedmoniker.pipeline.Builders
 {
@@ -6,6 +7,7 @@ namespace maltedmoniker.pipeline.Builders
         where TPipeline : IPipeline<T>
     {
         IPipelineBuilder<TPipeline, T> WithStep(IPipe<T> step);
+        IPipelineBuilder<TPipeline, T> UsingExceptionPipeline(IPipeline<(T, Exception), T> exceptionPipeline);
         TPipeline Build();
     }
 
@@ -13,6 +15,7 @@ namespace maltedmoniker.pipeline.Builders
         where TPipeline : IPipeline<TIn, TOut>
     {
         IPipeBuilder<TPipeline, TNextOut, TIn, TOut> WithStep<TNextOut>(IPipe<TIn, TNextOut> step);
+        IPipeBuilder<TPipeline, TNextOut, TIn, TOut> UsingExceptionPipeline<TNextOut>(IPipeline<(TIn, Exception), TOut> exceptionPipeline);
     }
 
 

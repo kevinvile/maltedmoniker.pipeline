@@ -130,9 +130,9 @@ namespace maltedmonker.pipeline.testconsole
             return files;
         }
 
-        static Pipeline<MyFile> GetMyFilePipeline(IPipelineBuilderFactory pipelineBuilderFactory)
+        static Pipeline<MyFile, MyFile2> GetMyFilePipeline(IPipelineBuilderFactory pipelineBuilderFactory)
         {
-            return pipelineBuilderFactory.GetImmutableBuilder<MyFile>()
+            return pipelineBuilderFactory.GetBuilder<MyFile, MyFile2, Pipeline<MyFile, MyFile2>>()
                     .WithStep(new BackupMyFile())
                     .WithStep(new Something())
                     .Build();
@@ -162,7 +162,12 @@ namespace maltedmonker.pipeline.testconsole
 
     }
 
-    class BackupMyFile : ISyncPipe<MyFile>
+    record MyFile2  
+    {
+
+    }
+
+    class BackupMyFile : ISyncPipe<MyFile, MyFile>
     {
         public MyFile Execute(MyFile item)
         {
@@ -173,14 +178,14 @@ namespace maltedmonker.pipeline.testconsole
         }
     }
 
-    class Something : IAsyncPipe<MyFile>
+    class Something : IAsyncPipe<MyFile, MyFile2>
     {
-        public async Task<MyFile> ExecuteAsync(MyFile item, CancellationToken token = default)
+        public async Task<MyFile2> ExecuteAsync(MyFile item, CancellationToken token = default)
         {
             Console.WriteLine($"Doing something {item.FileName}");
             item.MarkSomethingElse();
             await Task.Delay(25, token);
-            return item;
+            return new MyFile2();
         }
     }
 
