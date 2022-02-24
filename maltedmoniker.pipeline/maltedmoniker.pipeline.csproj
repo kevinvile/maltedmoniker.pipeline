@@ -1,9 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
 	  <Nullable>enable</Nullable>
-	  <Version>0.2.5</Version>
+	  <Version>1.0.0</Version>
 	  <PackageLicenseExpression>MIT</PackageLicenseExpression>
 	  <PackageProjectUrl>https://github.com/kevinvile/maltedmoniker.pipeline</PackageProjectUrl>
 	  <RepositoryUrl>https://github.com/kevinvile/maltedmoniker.pipeline</RepositoryUrl>

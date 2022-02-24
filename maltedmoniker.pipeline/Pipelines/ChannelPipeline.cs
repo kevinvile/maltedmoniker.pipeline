@@ -11,7 +11,8 @@ namespace maltedmoniker.pipeline.Pipelines
     public sealed class ChannelPipeline<TIn, TOut> : Pipeline<TIn, TOut>
     {
         public int ChannelSize { get; set; } = 150;
-        public ChannelPipeline(List<IPipe> pipes, IPipeline<(TIn, Exception), TOut>? exceptionPipeline = null) : base(pipes, exceptionPipeline) { }
+        public ChannelPipeline(List<IPipe> pipes, IPipeline<(TIn, Exception), TOut>? exceptionPipeline = null) 
+            : base(pipes, exceptionPipeline) { }
 
         public override async IAsyncEnumerable<TOut> Process(IEnumerable<TIn> items, [EnumeratorCancellation] CancellationToken token = default)
         {

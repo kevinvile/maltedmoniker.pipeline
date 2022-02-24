@@ -169,7 +169,7 @@ namespace maltedmonker.pipeline.testconsole
 
     class BackupMyFile : ISyncPipe<MyFile, MyFile>
     {
-        public MyFile Execute(MyFile item)
+        public MyFile Execute(MyFile item, PipelineContext context)
         {
             Console.WriteLine($"Backing up {item.FileName}");
             item.MarkBackedUp();
@@ -180,7 +180,7 @@ namespace maltedmonker.pipeline.testconsole
 
     class Something : IAsyncPipe<MyFile, MyFile2>
     {
-        public async Task<MyFile2> ExecuteAsync(MyFile item, CancellationToken token = default)
+        public async Task<MyFile2> ExecuteAsync(MyFile item, PipelineContext context,  CancellationToken token = default)
         {
             Console.WriteLine($"Doing something {item.FileName}");
             item.MarkSomethingElse();
@@ -221,7 +221,7 @@ namespace maltedmonker.pipeline.testconsole
 
     class AToASync : ISyncPipe<A, A>
     {
-        public A Execute(A item)
+        public A Execute(A item, PipelineContext context)
         {
             return new A(item.Name + " A");
         }
@@ -229,7 +229,7 @@ namespace maltedmonker.pipeline.testconsole
 
     class AToBAsync : IAsyncPipe<A, B>
     {
-        public async Task<B> ExecuteAsync(A item, CancellationToken token = default)
+        public async Task<B> ExecuteAsync(A item, PipelineContext context, CancellationToken token = default)
         {
             await Task.Delay(1, token);
             return new B(item.Name + " B");
@@ -238,14 +238,14 @@ namespace maltedmonker.pipeline.testconsole
 
     class AToBSync : ISyncPipe<A, B>
     {
-        public B Execute(A item)
+        public B Execute(A item, PipelineContext context)
         {
             return new B(item.Name + " B");
         }
     }
     class BToCAsync : IAsyncPipe<B, C>
     {
-        public Task<C> ExecuteAsync(B item, CancellationToken token = default)
+        public Task<C> ExecuteAsync(B item, PipelineContext context, CancellationToken token = default)
         {
             //            await Task.Delay(10);
             return Task.FromResult(new C(item.Name + " C"));
@@ -254,7 +254,7 @@ namespace maltedmonker.pipeline.testconsole
 
     class BToCSync : ISyncPipe<B, C>
     {
-        public C Execute(B item)
+        public C Execute(B item, PipelineContext context)
         {
             return new C(item.Name + " C");
         }
@@ -262,7 +262,7 @@ namespace maltedmonker.pipeline.testconsole
 
     class CToCSync : ISyncPipe<C, C>
     {
-        public C Execute(C item)
+        public C Execute(C item, PipelineContext context)
         {
             return new C(item.Name + " C");
         }
