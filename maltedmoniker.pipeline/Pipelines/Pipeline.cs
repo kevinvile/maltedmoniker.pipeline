@@ -11,6 +11,10 @@ namespace maltedmoniker.pipeline.Pipelines
 {
     public abstract class BasePipeline<TIn, TOut> : IPipeline<TIn, TOut>
     {
+        private readonly PipelineContext _pipelineContext;
+        private bool usePipeLineContext = true;
+        private bool _disposedValue;
+        
         protected Func<TIn, TIn> _preProcessItem = (TIn o) => o;// PassThrough;
         protected Func<TOut, TOut> _postProcessItem = (TOut o) => o;
         protected Func<TIn, TIn> PreProcessItem => _preProcessItem;
@@ -18,7 +22,7 @@ namespace maltedmoniker.pipeline.Pipelines
 
         protected MethodInfo _postProcessItemMethod = default!;
         protected readonly IPipeline<(TIn, Exception), TOut>? _exceptionPipeline;
-        protected PipelineContext _pipelineContext;
+        
 
         protected BasePipeline(IPipeline<(TIn, Exception), TOut>? exceptionPipeline)
         {
@@ -36,6 +40,25 @@ namespace maltedmoniker.pipeline.Pipelines
         {
             _postProcessItem = postProcessItem;
             UpdateMethodInfo();
+        }
+
+        public void DoNotUsePipelineContext()
+        {
+            usePipeLineContext = false;
+        }
+
+        public void UsePipelineContext()
+        {
+            usePipeLineContext = true;
+        }
+
+        protected PipelineContext? PipelineContext
+        {
+            get
+            {
+                if (!usePipeLineContext) return null;
+                return _pipelineContext;
+            }
         }
 
         private void UpdateMethodInfo()
@@ -62,17 +85,38 @@ namespace maltedmoniker.pipeline.Pipelines
         }
 
         public abstract IAsyncEnumerable<TOut> Process(IEnumerable<TIn> items, CancellationToken token = default);
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposedValue)
+            {
+                if (disposing)
+                {
+                    _pipelineContext.Dispose();
+                    _exceptionPipeline?.Dispose();
+                }
+
+                _disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
     }
 
     public class Pipeline<T> : BasePipeline<T, T>, IPipeline<T>
     {
-        private readonly List<Func<T, PipelineContext, CancellationToken, Task<T>>> _pipes;
+        private readonly List<Func<T, PipelineContext?, CancellationToken, Task<T>>> _pipes;
         private Type tType = typeof(T);
         public Pipeline(List<IPipe<T>> pipes, IPipeline<(T, Exception), T>? exceptionPipeline=null) 
             : base(exceptionPipeline)
         {
             _pipes = pipes
-                .Select<IPipe<T>, Func<T, PipelineContext, CancellationToken, Task<T>>>((step) =>
+                .Select<IPipe<T>, Func<T, PipelineContext?, CancellationToken, Task<T>>>((step) =>
                 {
                     if (step is IAsyncPipe<T> asyncStep)
                     {
@@ -91,7 +135,7 @@ namespace maltedmoniker.pipeline.Pipelines
 
         public override async IAsyncEnumerable<T> Process(IEnumerable<T> items, [EnumeratorCancellation] CancellationToken token = default)
         {
-            _pipelineContext.Clear();
+            PipelineContext?.Clear();
             
             foreach (var item in items)
             {
@@ -106,16 +150,16 @@ namespace maltedmoniker.pipeline.Pipelines
         {
             try
             {
-                _pipelineContext.StartItem(item);
+                PipelineContext?.StartItem(item);
                 var useItem = PreProcessItem.Invoke(item);
                 foreach (var step in _pipes)
                 {
-                    _pipelineContext.StartPipe(tType, tType, useItem);
-                    useItem = await step.Invoke(useItem, _pipelineContext, token);
-                    _pipelineContext.EndPipe(useItem);
+                    PipelineContext?.StartPipe(tType, tType, useItem);
+                    useItem = await step.Invoke(useItem, PipelineContext, token);
+                    PipelineContext?.EndPipe(useItem);
                 }
                 var outItem = PostProcessItem.Invoke(useItem);
-                _pipelineContext.EndItem(item);
+                PipelineContext?.EndItem(item);
                 return outItem;
             }
             catch(Exception ex)
@@ -176,7 +220,7 @@ namespace maltedmoniker.pipeline.Pipelines
 
         public async override IAsyncEnumerable<TOut> Process(IEnumerable<TIn> items, [EnumeratorCancellation] CancellationToken token = default)
         {
-            _pipelineContext.Clear();
+            PipelineContext?.Clear();
 
             foreach (var item in items)
             {
@@ -191,7 +235,7 @@ namespace maltedmoniker.pipeline.Pipelines
         {
             try
             {
-                _pipelineContext.StartItem(item);
+                PipelineContext?.StartItem(item);
 
                 var preProcessed = PreProcessItem.Invoke(item);
                 if (preProcessed is null) return default;
@@ -199,20 +243,20 @@ namespace maltedmoniker.pipeline.Pipelines
                 var useItem = (dynamic)preProcessed;
                 foreach (var pipeAndType in _pipeAndTypes)
                 {
-                    _pipelineContext.StartPipe(pipeAndType.In, pipeAndType.Out, useItem, pipeAndType.Pipe);
+                    PipelineContext?.StartPipe(pipeAndType.In, pipeAndType.Out, useItem, pipeAndType.Pipe);
                     var method = pipeAndType.Method;
                     useItem = pipeAndType.Type switch
                     {
-                        PipeType.Async => await method.InvokeAsync(pipeAndType.Pipe, (object)useItem, _pipelineContext, token),
-                        PipeType.Sync => method.Invoke(pipeAndType.Pipe, BindingFlags.Public | BindingFlags.NonPublic, null, new object[] { useItem, _pipelineContext, }, null),
+                        PipeType.Async => await method.InvokeAsync(pipeAndType.Pipe, (object)useItem, PipelineContext, token),
+                        PipeType.Sync => method.Invoke(pipeAndType.Pipe, BindingFlags.Public | BindingFlags.NonPublic, null, new object[] { useItem, PipelineContext, }, null),
                         _ => useItem
                     };
-                    _pipelineContext.EndPipe(useItem);
+                    PipelineContext?.EndPipe(useItem);
                 }
 
                 var outItem = (TOut)_postProcessItemMethod.Invoke(PostProcessItem, new object[] { useItem });
 
-                _pipelineContext.EndItem(outItem);
+                PipelineContext?.EndItem(outItem);
                 return outItem;
             }
             catch (Exception ex)
